@@ -14,8 +14,8 @@ base_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
 base_url_emblebi = 'https://www.ebi.ac.uk/proteins/api'
 
 def get_xml(url):                             #Gets the XML code of a website attached
-    for i in range(0,20):                     #EDITED: Possible callstack error if
-        response = requests.get(url)          #website was down due to infinite recursion
+    for i in range(0,20):                     
+        response = requests.get(url)          
         if response.status_code != 200: 
             print('Response code was not 200')
             print(response.raw)
