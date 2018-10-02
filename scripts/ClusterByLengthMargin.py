@@ -6,13 +6,11 @@ visualize = False
 if len(sys.argv) != 5 and len(sys.argv) != 6:
 	print("ARGUMENTS NEEDED: input_file output_file min_length max_length [--visual]")
 	exit()
-
-if len(sys.argv) == 6 and sys.argv[5] != "--visual":
+elif len(sys.argv) == 6 and sys.argv[5] != "--visual":
 	print("ARGUMENTS NEEDED: input_file output_file min_length max_length [--visual]")
 	print("if you are using --visual, it must be the last arguement")
 	exit()
-
-if len(sys.argv) == 6:
+elif len(sys.argv) == 6:
 	visualize = True
 
 input_file = str(sys.argv[1])
@@ -24,6 +22,7 @@ in_file = open(input_file,"r")
 out_file = open(output_file,"w")
 
 text = in_file.readlines()
+in_file.close()
 
 lengths = []
 count = 0
@@ -42,13 +41,13 @@ for t in text:
 
 
 out_file.close()
-print "NUMBER OF SEQUENCES OUTPUT: ", count
+print("NUMBER OF SEQUENCES OUTPUT: ", count)
 
 # Visual
 if visualize:
 	# make a histogram with bins starting at min ending at max with intervals of 10
 	plt.ylabel('Frequency')
 	plt.xlabel('Sequence Length')
-	plt.title('Frequency of Sequence Lengths Between 400 and 480 and Sequence Identity Threshold of 85%')
+	plt.title('Frequency of Sequence Lengths Between \n400 and 480 and Sequence Identity Threshold of 85%')
 	plt.hist(lengths, bins = range(min(lengths), max(lengths) + 1, 2))
 	plt.show()

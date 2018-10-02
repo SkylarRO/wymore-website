@@ -1,8 +1,11 @@
 #!/usr/local/bin/python3
 import requests                     # Make requests to API
 import xml.etree.ElementTree as ET  # Parse XML response
+import time
                                     # NOTE: Has XML vulnerabilities (2/19/2018)
 from Bio import SeqIO               # Read fasta files
+from Bio.Blast import NCBIWWW       # Conduct Blast Searches
+from Bio.Blast import NCBIXML       # Parse Blast Searches
 import openpyxl                     # Write spreadsheets
 import re                           # Searching with regex
 import argparse                     # Parse arguments
@@ -10,15 +13,19 @@ import argparse                     # Parse arguments
 base_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
 base_url_emblebi = 'https://www.ebi.ac.uk/proteins/api'
 
-def get_xml(url):
-    response = requests.get(url)
-    if response.status_code != 200:
-        print('Response code was not 200')
-        print(response.raw)
-        return get_xml(url)
-    return ET.fromstring(response.content)
+def get_xml(url):                             #Gets the XML code of a website attached
+    for i in range(0,20):                     #EDITED: Possible callstack error if
+        response = requests.get(url)          #website was down due to infinite recursion
+        if response.status_code != 200: 
+            print('Response code was not 200')
+            print(response.raw)
+            time.sleep(.1)
+        elif response.status_code == 200:
+            return ET.fromstring(response.content)
+    print("ERROR: Website down.")
+    exit()
 
-def get_json(url):
+def get_json(url):                  #Gets JSON from specified website
     return requests.get(url).json()
 
 # Returns '' if user says to skip
@@ -39,12 +46,15 @@ def get_search_term(description):
 # extract id from description
 def get_seq_id(description):
     result = re.search('^(.*)\.\d\/.*$', description)
+    if result == None:
+        return None
     return result.group(1)
 
 def get_features(sequence_id):
     url = '{}/features?offset=0&size=100&accession={}'.format(base_url_emblebi,
                                                               sequence_id)
     data = get_json(url)
+    print(data)
     if len(data) < 1:
         return None
     return data[0]
@@ -109,9 +119,34 @@ def find_product_note(tree):
                 for m in quals:
                     if m.find('GBQualifier_name').text == 'note':
                         return m.find('GBQualifier_value').text
-    print('Note not found')
+    print('Note not foxund')
     return ''
 
+#Should return a Blast Alignment between the selected sequence and itself from the NCBI database
+def blast_search_sequence(sequence):                                    
+    try:
+        result_handle = NCBIWWW.qblast("blastn", "nt", sequence.seq)    #Conducts Blast nucleotide Search
+    except:
+        result_handle = NCBIWWW.qblast("blastp", "nt", sequence.seq)    #Conducts Blast protein Search if nucleotide search
+                                                                        #fails
+    bls = NCBIXML.read(result_handle)                                   #Parses result
+    temp = bls.alignments[0]
+    length = len(sequence.seq)
+    for i in bls.alignments:                                            #Gets the result closest
+        if abs(i.length - length) < abs(temp.length - length):          #in length to the input
+            temp = i                                                    #sequence
+        if abs(i.length - length) == 0:                                 #Ends search if length is equal for time's sake
+            break
+    return temp
+
+#Returns a sequence with corrected description and ID
+def fixSeq(sequence):
+    res = blast_search_sequence(sequence)               #Gets blast aignment of this record with itself including data
+    d = str(res.title)                                  #Gets description
+    sequence.description = d[d.rfind('|')+1:]           #Gets  only the relavent part of the description
+    sequence.id = d[d.rfind('gb|')+3:d.rfind('|')]      #Gets the sequence ID
+    return sequence
+    
 def search_ncbi(sequence):
     term = get_search_term(sequence.description)
     if term == '':
@@ -166,6 +201,8 @@ def main():
                     action='store_true')
     parser.add_argument('-v', '--verbose', help='Verbose output while running',
                     action='store_true')
+    parser.add_argument('-c', '--Bget', help='Run a blast search to replace corrupted information',
+                    action='store_true')
     parser.add_argument('-s', '--start', type=int, nargs='?',
         default=0,
         help='Starts at this index in the input file. (default is 0)')
@@ -182,6 +219,8 @@ def main():
     column_names = {}
     sheet_column = 2
     for sequence in SeqIO.parse(args.input, 'fasta'):
+        if(args.Bget):
+            sequence = fixSeq(sequence)
         sequence_number += 1
         if args.start > sequence_number:
             continue
