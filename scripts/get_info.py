@@ -6,6 +6,7 @@ import time
 from Bio import SeqIO               # Read fasta files
 from Bio.Blast import NCBIWWW       # Conduct Blast Searches
 from Bio.Blast import NCBIXML       # Parse Blast Searches
+from Bio import Entrez
 import openpyxl                     # Write spreadsheets
 import re                           # Searching with regex
 import argparse                     # Parse arguments
@@ -123,29 +124,26 @@ def find_product_note(tree):
     return ''
 
 #Should return a Blast Alignment between the selected sequence and itself from the NCBI database
-def blast_search_sequence(sequence):                                    
-    try:
-        result_handle = NCBIWWW.qblast("blastn", "nt", sequence.seq)    #Conducts Blast nucleotide Search
-    except:
-        result_handle = NCBIWWW.qblast("blastp", "nt", sequence.seq)    #Conducts Blast protein Search if nucleotide search
-                                                                        #fails
+def blast_search_sequence(sequence):                       
+    result_handle = NCBIWWW.qblast("blastp", "nr", sequence.seq)        #Conducts Blast nucleotide Search
     bls = NCBIXML.read(result_handle)                                   #Parses result
-    temp = bls.alignments[0]
-    length = len(sequence.seq)
-    for i in bls.alignments:                                            #Gets the result closest
-        if abs(i.length - length) < abs(temp.length - length):          #in length to the input
-            temp = i                                                    #sequence
-        if abs(i.length - length) == 0:                                 #Ends search if length is equal for time's sake
-            break
-    return temp
+    s =  str(bls.alignments[0])
+    print(s)
+    s = s[s.find("ref|")+4:s.find("|",s.find("ref|")+4)]
+    print(s)
+    return s
 
 #Returns a sequence with corrected description and ID
 def fixSeq(sequence):
     res = blast_search_sequence(sequence)               #Gets blast aignment of this record with itself including data
-    d = str(res.title)                                  #Gets description
-    sequence.description = d[d.rfind('|')+1:]           #Gets  only the relavent part of the description
-    sequence.id = d[d.rfind('gb|')+3:d.rfind('|')]      #Gets the sequence ID
-    return sequence
+    Entrez.email = "olsobe@umich.edu"
+    sequence.id = res                                   #Gets the sequence ID
+    print(res)
+    handle = Entrez.efetch(db="protein", id=res, retmax="15", rettype="fasta", retmode="text")
+    text = handle.read()
+    return SeqIO.parse(text, 'fasta')
+    
+
     
 def search_ncbi(sequence):
     term = get_search_term(sequence.description)
