@@ -128,9 +128,7 @@ def blast_search_sequence(sequence):
     result_handle = NCBIWWW.qblast("blastp", "nr", sequence.seq)        #Conducts Blast nucleotide Search
     bls = NCBIXML.read(result_handle)                                   #Parses result
     s =  str(bls.alignments[0])
-    print(s)
     s = s[s.find("ref|")+4:s.find("|",s.find("ref|")+4)]
-    print(s)
     return s
 
 #Returns a sequence with corrected description and ID
@@ -138,7 +136,6 @@ def fixSeq(sequence):
     res = blast_search_sequence(sequence)               #Gets blast aignment of this record with itself including data
     Entrez.email = "olsobe@umich.edu"
     sequence.id = res                                   #Gets the sequence ID
-    print(res)
     handle = Entrez.efetch(db="protein", id=res, retmax="15", rettype="fasta", retmode="text")
     text = handle.read()
     return SeqIO.parse(text, 'fasta')
